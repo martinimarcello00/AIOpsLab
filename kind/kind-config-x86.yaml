@@ -6,6 +6,9 @@ nodes:
     extraMounts:
       - hostPath: /run/udev
         containerPath: /run/udev
+    extraPortMappings:
+      - containerPort: 32000
+        hostPort: 32000
   - role: worker
     image: jacksonarthurclark/aiopslab-kind-x86:latest
     extraMounts:
