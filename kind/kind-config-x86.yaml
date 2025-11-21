@@ -1,5 +1,10 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
 nodes:
   - role: control-plane
     image: jacksonarthurclark/aiopslab-kind-x86:latest
@@ -7,8 +12,12 @@ nodes:
       - hostPath: /run/udev
         containerPath: /run/udev
     extraPortMappings:
-      - containerPort: 32000
+      - containerPort: 32000 # Prometheus server
         hostPort: 32000
+      - containerPort: 2333 # Chaos mesh dashboard
+        hostPort: 2333
+      - containerPort: 30686 # Jaeger UI (fixed NodePort)
+        hostPort: 16686
   - role: worker
     image: jacksonarthurclark/aiopslab-kind-x86:latest
     extraMounts:
