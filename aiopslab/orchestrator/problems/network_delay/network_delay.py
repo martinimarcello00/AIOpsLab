@@ -30,7 +30,7 @@ class NetworkDelayBaseTask:
         print("== Start Workload ==")
         frontend_url = get_frontend_url(self.app)
 
-        wrk = Wrk(rate=10, dist="exp", connections=2, duration=10, threads=2)
+        wrk = Wrk(rate=10, dist="exp", connections=2, duration=300, threads=2)  # 5 minutes
         wrk.start_workload(
             payload_script=self.payload_script,
             url=f"{frontend_url}",
@@ -38,7 +38,7 @@ class NetworkDelayBaseTask:
 
     def inject_fault(self):
         print("== Fault Injection ==")
-        self.injector.inject_network_delay([self.faulty_service])
+        self.injector.inject_network_delay([self.faulty_service], "1200s")
         print(f"Service: {self.faulty_service} | Namespace: {self.namespace}\n")
 
     def recover_fault(self):

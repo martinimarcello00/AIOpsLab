@@ -37,7 +37,7 @@ class PodKillBaseTask:
     def inject_fault(self):
         print("== Fault Injection ==")
         self.injector._inject(
-            fault_type="pod_kill", microservices=[self.faulty_service], duration="100s"
+            fault_type="pod_kill", microservices=[self.faulty_service], duration="1200s"
         )
         print(f"Service: {self.faulty_service} | Namespace: {self.namespace}\n")
 
