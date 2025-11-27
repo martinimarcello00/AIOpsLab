@@ -16,7 +16,7 @@ nodes:
         hostPort: 32000
       - containerPort: 2333 # Chaos mesh dashboard
         hostPort: 2333
-      - containerPort: 30686 # Jaeger UI (fixed NodePort)
+      - containerPort: 30686 # Jaeger UI
         hostPort: 16686
   - role: worker
     image: jacksonarthurclark/aiopslab-kind-x86:latest
