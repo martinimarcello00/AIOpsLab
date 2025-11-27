@@ -28,6 +28,8 @@ Moreover, AIOpsLab provides a built-in benchmark suite with a set of problems to
 
 ### Requirements
 - Python >= 3.11
+- [Helm](https://helm.sh/)
+- Additional requirements depend on the deployment option selected, which is explained in the next section
 
 Recommended installation:
 ```bash
@@ -52,7 +54,7 @@ poetry shell
 Choose either a) or b) to set up your cluster and then proceed to the next steps.
 
 ### a) Local simulated cluster
-AIOpsLab can be run on a local simulated cluster using [kind](https://kind.sigs.k8s.io/) on your local machine.
+AIOpsLab can be run on a local simulated cluster using [kind](https://kind.sigs.k8s.io/) on your local machine. Please look at this [README](kind/README.md#prerequisites) for a list of prerequisites.
 
 ```bash
 # For x86 machines
@@ -62,12 +64,25 @@ kind create cluster --config kind/kind-config-x86.yaml
 kind create cluster --config kind/kind-config-arm.yaml
 ```
 
-If you're running into issues, consider building a Docker image for your machine by following this [README](kind/README.md). Please also open an issue.
+If you're running into issues, consider building a Docker image for your machine by following this [README](kind/README.md#deployment-steps). Please also open an issue.
+
+### [Tips]
+If you are running AIOpsLab using a proxy, beware of exporting the HTTP proxy as `172.17.0.1`. When creating the kind cluster, all the nodes in the cluster will inherit the proxy setting from the host environment and the Docker container. 
+
+The `172.17.0.1` address is used to communicate with the host machine. For more details, refer to the official guide: [Configure Kind to Use a Proxy](https://kind.sigs.k8s.io/docs/user/quick-start/#configure-kind-to-use-a-proxy).
+
+Additionally, Docker doesn't support SOCKS5 proxy directly. If you're using a SOCKS5 protocol to proxy, you may need to use [Privoxy](https://www.privoxy.org) to forward SOCKS5 to HTTP.
+
+If you're running VLLM and the LLM agent locally, Privoxy will by default proxy `localhost`, which will cause errors. To avoid this issue, you should set the following environment variable:
+
+```bash
+export no_proxy=localhost
+``` 
 
 After finishing cluster creation, proceed to the next "Update `config.yml`" step.
 
 ### b) Remote cluster
-AIOpsLab supports any remote kubernetes cluster that your `kubectl` context is set to, whether it's a cluster from a cloud provider or one you build yourself. We have some Ansible playbooks we have to setup clusters on providers like [CloudLab](https://www.cloudlab.us/) and our own machines. Follow this [README](./scripts/ansible/README.md) to set up your own cluster, and then proceed to the next "Update `config.yml`" step.
+AIOpsLab supports any remote kubernetes cluster that your `kubectl` context is set to, whether it's a cluster from a cloud provider or one you build yourself. We have some Ansible playbooks to setup clusters on providers like [CloudLab](https://www.cloudlab.us/) and our own machines. Follow this [README](./scripts/ansible/README.md) to set up your own cluster, and then proceed to the next "Update `config.yml`" step.
 
 ### Update `config.yml`
 ```bash
@@ -76,7 +91,7 @@ cp config.yml.example config.yml
 ```
 Update your `config.yml` so that `k8s_host` is the host name of the control plane node of your cluster. Update `k8s_user` to be your username on the control plane node. If you are using a kind cluster, your `k8s_host` should be `kind`. If you're running AIOpsLab on cluster, your `k8s_host` should be `localhost`.
 
-### Running agents
+### Running agents locally
 Human as the agent:
 
 ```bash
@@ -89,11 +104,31 @@ python3 cli.py
 Run GPT-4 baseline agent:
 
 ```bash
-export OPENAI_API_KEY=<YOUR_OPENAI_API_KEY>
+# Create a .env file in the project root (if not exists)
+echo "OPENAI_API_KEY=<YOUR_OPENAI_API_KEY>" > .env
+# Add more API keys as needed:
+# echo "QWEN_API_KEY=<YOUR_QWEN_API_KEY>" >> .env
+# echo "DEEPSEEK_API_KEY=<YOUR_DEEPSEEK_API_KEY>" >> .env
+
 python3 clients/gpt.py # you can also change the problem to solve in the main() function
 ```
 
+Our repository comes with a variety of pre-integrated agents, including agents that enable **secure authentication with Azure OpenAI endpoints using identity-based access**. Please check out [Clients](/clients) for a comprehensive list of all implemented clients.
+
+The clients will automatically load API keys from your .env file.
+
 You can check the running status of the cluster using [k9s](https://k9scli.io/) or other cluster monitoring tools conveniently.
+
+To browse your logged `session_id` values in the W&B app as a table:
+
+1. Make sure you have W&B installed and configured.
+2. Set the USE_WANDB environment variable:
+    ```bash
+    # Add to your .env file
+    echo "USE_WANDB=true" >> .env
+    ```
+3. In the W&B web UI, open any run and click Tables → Add Query Panel.
+4. In the key field, type `runs.summary` and click `Run`, then you will see the results displayed in a table format.
 
 <h2 id="⚙️usage">⚙️ Usage</h2>
 
@@ -102,6 +137,52 @@ AIOpsLab can be used in the following ways:
 - [Add new applications to AIOpsLab](#how-to-add-new-applications-to-aiopslab)
 - [Add new problems to AIOpsLab](#how-to-add-new-problems-to-aiopslab)
 
+### Running agents remotely
+You can run AIOpsLab on a remote machine with larger computational resources. This section guides you through setting up and using AIOpsLab remotely.
+
+1. **On the remote machine, start the AIOpsLab service**:
+
+    ```bash
+    SERVICE_HOST=<YOUR_HOST> SERVICE_PORT=<YOUR_PORT> SERVICE_WORKERS=<YOUR_WORKERS> python service.py
+    ```
+2. **Test the connection from your local machine**:
+    In your local machine, you can test the connection to the remote AIOpsLab service using `curl`:
+
+    ```bash
+    # Check if the service is running
+    curl http://<YOUR_HOST>:<YOUR_PORT>/health
+    
+    # List available problems
+    curl http://<YOUR_HOST>:<YOUR_PORT>/problems
+    
+    # List available agents
+    curl http://<YOUR_HOST>:<YOUR_PORT>/agents
+    ```
+
+3. **Run vLLM on the remote machine (if using vLLM agent):**
+    If you're using the vLLM agent, make sure to launch the vLLM server on the remote machine:
+
+    ```bash
+    # On the remote machine
+    chmod +x ./clients/launch_vllm.sh
+    ./clients/launch_vllm.sh
+    ```
+    You can customize the model by editing `launch_vllm.sh` before running it.
+
+4. **Run the agent**:
+    In your local machine, you can run the agent using the following command:
+
+    ```bash
+    curl -X POST http://<YOUR_HOST>:<YOUR_PORT>/simulate \
+      -H "Content-Type: application/json" \
+      -d '{
+        "problem_id": "misconfig_app_hotel_res-mitigation-1",
+        "agent_name": "vllm",
+        "max_steps": 10,
+        "temperature": 0.7,
+        "top_p": 0.9
+      }'
+    ```
 
 ### How to onboard your agent to AIOpsLab?
 
@@ -369,11 +450,13 @@ See a full example of a problem [here](/aiopslab/orchestrator/problems/k8s_targe
 <h2 id="📄how-to-cite">📄 How to Cite</h2>
 
 ```bibtex
-@misc{chen2024aiopslab,
-  title = {AIOpsLab: A Holistic Framework to Evaluate AI Agents for Enabling Autonomous Clouds},
-  author = {Chen, Yinfang and Shetty, Manish and Somashekar, Gagan and Ma, Minghua and Simmhan, Yogesh and Mace, Jonathan and Bansal, Chetan and Wang, Rujia and Rajmohan, Saravan},
-  year = {2025},
-  url = {https://arxiv.org/abs/2501.06706} 
+@inproceedings{
+chen2025aiopslab,
+title={{AIO}psLab: A Holistic Framework to Evaluate {AI} Agents for Enabling Autonomous Clouds},
+author={Yinfang Chen and Manish Shetty and Gagan Somashekar and Minghua Ma and Yogesh Simmhan and Jonathan Mace and Chetan Bansal and Rujia Wang and Saravan Rajmohan},
+booktitle={Eighth Conference on Machine Learning and Systems},
+year={2025},
+url={https://openreview.net/forum?id=3EXBLwGxtq}
 }
 @inproceedings{shetty2024building,
   title = {Building AI Agents for Autonomous Clouds: Challenges and Design Principles},
