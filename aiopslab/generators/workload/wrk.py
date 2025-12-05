@@ -39,12 +39,25 @@ class Wrk:
                 print(f"Error deleting ConfigMap '{name}': {e}")
                 return
 
-        try:
-            print(f"Creating ConfigMap '{name}'...")
-            api_instance.create_namespaced_config_map(namespace=namespace, body=configmap_body)
-            print(f"ConfigMap '{name}' created successfully.")
-        except client.exceptions.ApiException as e:
-            print(f"Error creating ConfigMap '{name}': {e}")
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                print(f"Creating ConfigMap '{name}' (Attempt {attempt + 1}/{max_retries})...")
+                api_instance.create_namespaced_config_map(namespace=namespace, body=configmap_body)
+                print(f"ConfigMap '{name}' created successfully.")
+                break
+            except client.exceptions.ApiException as e:
+                print(f"Error creating ConfigMap '{name}': {e}")
+                if attempt < max_retries - 1:
+                    print("Retrying in 5 seconds...")
+                    time.sleep(5)
+                else:
+                    print("Max retries reached. Failed to create ConfigMap.")
+                    # We should probably not raise here to keep behavior consistent with previous code, 
+                    # but printing the error is good. The previous code didn't raise.
+                    # However, if the configmap isn't created, the job will likely fail.
+                    # Given the user just showed the error, I'll stick to printing but maybe with more emphasis.
+                    pass
 
     def create_wrk_job(self, job_name, namespace, payload_script, url):
         wrk_job_yaml = BASE_DIR / "generators" / "workload" / "wrk-job-template.yaml"
@@ -100,12 +113,20 @@ class Wrk:
                 print(f"Error checking for existing job: {e}")
                 return
 
-        try:
-            response = api_instance.create_namespaced_job(namespace=namespace, body=job_template)
-            print(f"Job created: {response.metadata.name}")
-        except client.exceptions.ApiException as e:
-            print(f"Error creating job: {e}")
-            return
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                response = api_instance.create_namespaced_job(namespace=namespace, body=job_template)
+                print(f"Job created: {response.metadata.name}")
+                break
+            except client.exceptions.ApiException as e:
+                print(f"Error creating job: {e}")
+                if attempt < max_retries - 1:
+                    print("Retrying in 5 seconds...")
+                    time.sleep(5)
+                else:
+                    print("Max retries reached. Failed to create job.")
+                    return
 
         try:
             while True:
