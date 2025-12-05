@@ -12,6 +12,8 @@ nodes:
       - hostPath: /run/udev
         containerPath: /run/udev
     extraPortMappings:
+      - containerPort: 30080 # Astronomy shop frontend proxy NodePort
+        hostPort: 8080
       - containerPort: 32000 # Prometheus server
         hostPort: 32000
       - containerPort: 2333 # Chaos mesh dashboard

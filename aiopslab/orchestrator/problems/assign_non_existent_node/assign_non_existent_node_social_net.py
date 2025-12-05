@@ -27,17 +27,17 @@ class AssignNonExistentNodeSocialNetBaseTask:
 
         self.payload_script = (
             TARGET_MICROSERVICES
-            / "socialNetwork/wrk2/scripts/social-network/compose-post.lua"
+            / "socialNetwork/wrk2/scripts/social-network/mixed-workload.lua"
         )
 
     def start_workload(self):
         print("== Start Workload ==")
         frontend_url = get_frontend_url(self.app)
 
-        wrk = Wrk(rate=10, dist="exp", connections=2, duration=10, threads=2)
+        wrk = Wrk(rate=10, dist="exp", connections=2, duration=100, threads=2)
         wrk.start_workload(
             payload_script=self.payload_script,
-            url=f"{frontend_url}/wrk2-api/post/compose",
+            url=f"{frontend_url}",
         )
 
     def inject_fault(self):

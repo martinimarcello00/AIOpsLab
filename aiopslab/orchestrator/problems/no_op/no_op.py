@@ -31,7 +31,7 @@ class NoOpBaseTask:
             self.app = SocialNetwork()
             self.payload_script = (
                 TARGET_MICROSERVICES
-                / "socialNetwork/wrk2/scripts/social-network/compose-post.lua"
+                / "socialNetwork/wrk2/scripts/social-network/mixed-workload.lua"
             )
             self.faulty_service = "PLACEHOLDER"
         elif self.app_name == "astronomy_shop":
@@ -49,7 +49,7 @@ class NoOpBaseTask:
             print("== Start Workload ==")
             frontend_url = get_frontend_url(self.app)
 
-            wrk = Wrk(rate=10, dist="exp", connections=2, duration=10, threads=2)
+            wrk = Wrk(rate=30, dist="exp", connections=2, duration=100, threads=2)
             wrk.start_workload(
                 payload_script=self.payload_script,
                 url=f"{frontend_url}",
